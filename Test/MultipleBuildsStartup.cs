@@ -11,7 +11,7 @@ namespace UrDeveloper.PrplServer.Test
         {
             services.Configure<PrplConfiguration>(config =>
             {
-                config.Builds = new List<BuildConfiguration> 
+                config.Builds = new List<BuildConfiguration>
                 {
                     new BuildConfiguration
                     {
@@ -21,8 +21,8 @@ namespace UrDeveloper.PrplServer.Test
                     {
                         Name = "es2015",
                         BrowserCapabilities = new BrowserCapability[]
-                        { 
-                            BrowserCapability.es2015 
+                        {
+                            BrowserCapability.es2015
                         }
                     }
                 };
@@ -31,6 +31,20 @@ namespace UrDeveloper.PrplServer.Test
 
         public void Configure(IApplicationBuilder app)
         {
+            app.Use(async (context, next) =>
+            {
+                // To help test caching behavior, if the request URL includes this
+                // magic string, we'll set the cache-control header to something
+                // custom before calling prpl-handler. This is how we allow users to
+                // take over control of the cache-control header.
+                if (context.Request.Query.ContainsKey("custom-cache"))
+                {
+                    context.Response.Headers.Add("Cache-Control", "custom-cache");
+                }
+
+                await next.Invoke();
+            });
+
             app.UsePrpl("static");
         }
     }

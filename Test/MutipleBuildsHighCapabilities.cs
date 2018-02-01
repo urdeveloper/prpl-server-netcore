@@ -5,6 +5,8 @@ using System.Net.Http;
 using Xunit;
 using Microsoft.AspNetCore.TestHost;
 using System.Threading.Tasks;
+using System.Net.Http.Headers;
+using System.Collections.Generic;
 
 namespace UrDeveloper.PrplServer.Test
 {
@@ -80,7 +82,7 @@ namespace UrDeveloper.PrplServer.Test
         public async Task AutomaticallyUnregisterMissingServiceWorkers()
         {
             var resp = await _server.Get("/service-worker.js", CHROME_UA);
-            Assert.Equal(HttpStatusCode.OK,resp.Code);
+            Assert.Equal(HttpStatusCode.OK, resp.Code);
             Assert.Equal("/", resp.Headers.GetHeader("service-worker-allowed"));
             Assert.Contains("registration.unregister", resp.Data);
         }
@@ -89,32 +91,38 @@ namespace UrDeveloper.PrplServer.Test
         public async Task SetsDefaultCacheHeaderOnStaticFile()
         {
             var resp = await _server.Get("/es2015/fragment.html", CHROME_UA);
-            Assert.Equal("max-age=60", resp.Headers.GetHeader("Cache-Control"));
+            Assert.Equal("max-age=60", resp.Headers.GetHeader("cache-control"));
         }
 
         [Fact]
         public async Task SetsZeroCacheHeaderOnEntrypoint()
         {
             var resp = await _server.Get("/foor/bar", CHROME_UA);
-            Assert.Equal("max-age=0", resp.Headers.GetHeader("Cache-Control"));
+            Assert.Equal("max-age=0", resp.Headers.GetHeader("cache-control"));
         }
 
         [Fact]
         public async Task DoesNotSetCacheHeaderIfAlreadySet()
         {
-            Assert.True(true);
+            var resp = await _server.Get("/foo/bar?custom-cache", CHROME_UA);
+            Assert.Equal("custom-cache", resp.Headers.GetHeader("cache-control"));
         }
 
         [Fact]
         public async Task SendsEtagResponseHeader()
         {
-            Assert.True(false);
+            var resp = await _server.Get("/es2015/fragment.html", CHROME_UA);
+            Assert.NotNull(resp.Headers.GetHeader("etag"));
         }
 
         [Fact]
         public async Task RespectsETagRequestHeader()
         {
-            Assert.True(false);
+            var resp = await _server.Get("/es2015/fragment.html", CHROME_UA);
+            var tag = resp.Headers.GetHeader("etag");
+            resp = await _server.Get("/es2015/fragment.html", CHROME_UA, new Dictionary<string, string> { { "If-None-Match", tag } });
+            Assert.Equal(HttpStatusCode.NotModified, resp.Code);
+            Assert.Equal("", resp.Data);
         }
     }
 }
