@@ -58,7 +58,7 @@ namespace UrDeveloper.PrplServer.Test
 
             if (headers.TryGetValues(name, out IEnumerable<string> values))
             {
-                return values.First();
+                return string.Join(",", values);
             }
             return null;
         }

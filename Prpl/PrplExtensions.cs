@@ -9,6 +9,7 @@ using Microsoft.Extensions.Options;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Rewrite;
+using System.Text.RegularExpressions;
 
 namespace UrDeveloper.PrplServer
 {
@@ -16,13 +17,12 @@ namespace UrDeveloper.PrplServer
     {
         static Build[] LoadBuilds(string root, PrplConfiguration config)
         {
-            return config.Builds.Select(b => new Build
+            return config.Builds.Select((b, i) => new Build(Path.Combine(root, b.Name), root)
             {
+                ConfigOrder = i,
                 Name = b.Name,
                 Requirements = new HashSet<BrowserCapability>(b.BrowserCapabilities ?? new BrowserCapability[] { }),
-                BuildDir = Path.Combine(root, b.Name),
                 EntryPoint = b.EntryPoint,
-                ServerRoot = root
             }).OrderBy(bb => bb).ToArray();
         }
 
@@ -33,7 +33,7 @@ namespace UrDeveloper.PrplServer
             var config = appBuilder.ApplicationServices.GetService<IOptions<PrplConfiguration>>().Value;
             var absRoot = Path.Combine(env.ContentRootPath, root);
             var builds = LoadBuilds(absRoot, config);
-
+            var hasFileExtension = new Regex("\\.[^/]*$");
             foreach (var build in builds)
             {
                 appBuilder.UseWhen(context =>
@@ -51,13 +51,33 @@ namespace UrDeveloper.PrplServer
                         RequestPath = new PathString("")
                     });
 
+                    //Handle SPA routes
+                    var rewriterOptions = new RewriteOptions();
+                    rewriterOptions.Add(new RewriteAppRoute(fullEntryPoint));
+                    app.UseRewriter(rewriterOptions);
+
+                    /*
+                    app.Use(async (ctx, next) =>
+                    {
+                        await next();
+                        if (ctx.Response.StatusCode == 404 && !Path.HasExtension(ctx.Request.Path.Value))
+                        {
+                            ctx.Request.Path = "/" + fullEntryPoint;
+                            await next();
+                        }
+                    });
+
+
+
                     var rewriterOptions = new RewriteOptions
                     {
                         StaticFileProvider = new PhysicalFileProvider(build.BuildDir)
                     };
 
+
                     rewriterOptions.AddRewrite(".*(?<!\\..*?)$", fullEntryPoint, true);
                     app.UseRewriter(rewriterOptions);
+                    */
 
                     app.UseStaticFiles(new StaticFileOptions
                     {
@@ -79,6 +99,28 @@ namespace UrDeveloper.PrplServer
                             {
                                 ctx.Context.Response.Headers["Cache-Control"] = ctx.File.Name == build.EntryPoint ? "max-age=0"
                                     : config.CacheControl;
+                            }
+
+                            if (build.PushManifest != null)
+                            {
+                                var urlPath = ctx.Context.Request.Path;
+
+                                var linkHeaders = new List<string>();
+
+                                var appRouteFeature = ctx.Context.Features.Get<ApplicationRouteFeature>();
+
+                                if (appRouteFeature != null && !string.IsNullOrEmpty(appRouteFeature.Path))
+                                {
+                                    // Also check the filename against the push manifest. In the case of
+                                    // the entrypoint, these will be different (e.g. "/my/app/route" vs
+                                    // "/es2015/index.html"), and we want to support configuring pushes in
+                                    // terms of both.
+                                    linkHeaders.AddRange(build.PushManifest.LinkHeaders(appRouteFeature.Path));
+                                }
+
+                                linkHeaders.AddRange(build.PushManifest.LinkHeaders(urlPath));
+
+                                ctx.Context.Response.Headers.Add("Link", linkHeaders.ToArray());
                             }
                         }
                     });

@@ -62,13 +62,20 @@ namespace UrDeveloper.PrplServer.Test
         [Fact]
         public async Task SetsPushHeadersForExplicitEntrypoint()
         {
-            Assert.True(false);
+            var resp = await _server.Get("/es2015/index.html", CHROME_UA);
+            var linkHeader = resp.Headers.GetHeader("link");
+            Assert.Equal("</es2015/fragment.html>; rel=preload; as=document," +
+                         "</es2015/serviceworker.js>; rel=preload; as=script", linkHeader);
         }
 
         [Fact]
         public async Task SetsPushHeadersForApplicationRoute()
         {
-            Assert.True(false);
+            var resp = await _server.Get("/foo/bar", CHROME_UA);
+            var linkHeader = resp.Headers.GetHeader("link");
+            Assert.Equal("</es2015/foo.html>; rel=preload; as=document," +
+                         "</es2015/fragment.html>; rel=preload; as=document," +
+                         "</es2015/serviceworker.js>; rel=preload; as=script", linkHeader);
         }
 
         [Fact]

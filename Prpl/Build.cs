@@ -4,13 +4,13 @@ using System.Collections.Generic;
 
 namespace UrDeveloper.PrplServer
 {
-    public class Build:IComparable
+    public class Build : IComparable
     {
         public string Name { get; set; }
 
         public int ConfigOrder { get; set; }
 
-        public HashSet<BrowserCapability> Requirements {get;set;}
+        public HashSet<BrowserCapability> Requirements { get; set; }
 
         public string EntryPoint { get; set; }
 
@@ -18,9 +18,22 @@ namespace UrDeveloper.PrplServer
 
         public string ServerRoot { get; set; }
 
-        public Build()
+        public PushManifest PushManifest { get; set; }
+
+        public Build(string buildDir, string serverRoot)
         {
-            //var pushManifestPath = Path.Combine(BuildDir, "push-manifest.json");
+
+            BuildDir = buildDir;
+            ServerRoot = serverRoot;
+
+            var pushManifestPath = Path.Combine(buildDir, "push-manifest.json");
+
+            if (File.Exists(pushManifestPath))
+            {
+                var pushManifestJson = File.ReadAllText(pushManifestPath);
+                var relPath = new Uri(serverRoot.EndsWith("/", StringComparison.Ordinal) ? serverRoot : serverRoot + "/").MakeRelativeUri(new Uri(buildDir)).ToString();
+                PushManifest = new PushManifest(pushManifestJson, relPath);
+            }
         }
 
 
