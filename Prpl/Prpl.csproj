@@ -3,6 +3,18 @@
   <PropertyGroup>
     <TargetFramework>netcoreapp2.0</TargetFramework>
     <RootNamespace>UrDeveloper.PrplServer</RootNamespace>
+    <Authors>UrDeveloper</Authors>
+    <Company>UrDeveloper</Company>
+    <PackageId>PrplServer</PackageId>
+    <Product>PrplServer</Product>
+    <Copyright>2018 UrDeveloper</Copyright>
+    <PackageLicenseUrl>https://github.com/urdeveloper/prpl-server-netcore/blob/master/LICENSE</PackageLicenseUrl>
+    <PackageProjectUrl>https://github.com/urdeveloper/prpl-server-netcore</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/urdeveloper/prpl-server-netcore</RepositoryUrl>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <AssemblyName>UrDeveloper.PrplServer</AssemblyName>
+    <Version>1.0.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
