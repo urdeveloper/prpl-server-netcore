@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Rewrite;
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.StaticFiles;
 
 namespace UrDeveloper.PrplServer
 {
@@ -24,6 +25,50 @@ namespace UrDeveloper.PrplServer
                 Requirements = new HashSet<BrowserCapability>(b.BrowserCapabilities ?? new BrowserCapability[] { }),
                 EntryPoint = b.EntryPoint,
             }).OrderBy(bb => bb).ToArray();
+        }
+
+        static Action<StaticFileResponseContext> PrepareStaticFiles(PrplConfiguration config, Build build)
+        {
+            return (StaticFileResponseContext ctx) =>
+            {
+                if (ctx.File.Name.EndsWith("service-worker.js", StringComparison.Ordinal))
+                {
+                    // A service worker may only register with a scope above its own path if
+                    // permitted by this header.
+                    // https://www.w3.org/TR/service-workers-1/#service-worker-allowed
+                    ctx.Context.Response.Headers["service-worker-allowed"] = "/";
+                }
+
+                // Don't set the Cache-Control header if it's already set. This way another
+                // middleware can control caching, and we won't touch it.
+                if (!ctx.Context.Response.Headers["Cache-Control"].Any())
+                {
+                    ctx.Context.Response.Headers["Cache-Control"] = ctx.File.Name == build.EntryPoint ? "max-age=0"
+                        : config.CacheControl;
+                }
+
+                if (build.PushManifest != null)
+                {
+                    var urlPath = ctx.Context.Request.Path;
+
+                    var linkHeaders = new List<string>();
+
+                    var appRouteFeature = ctx.Context.Features.Get<ApplicationRouteFeature>();
+
+                    if (appRouteFeature != null && !string.IsNullOrEmpty(appRouteFeature.Path))
+                    {
+                        // Also check the filename against the push manifest. In the case of
+                        // the entrypoint, these will be different (e.g. "/my/app/route" vs
+                        // "/es2015/index.html"), and we want to support configuring pushes in
+                        // terms of both.
+                        linkHeaders.AddRange(build.PushManifest.LinkHeaders(appRouteFeature.Path));
+                    }
+
+                    linkHeaders.AddRange(build.PushManifest.LinkHeaders(urlPath));
+
+                    ctx.Context.Response.Headers.Add("Link", linkHeaders.ToArray());
+                }
+            };
         }
 
         public static IApplicationBuilder UsePrpl(this IApplicationBuilder appBuilder, string root = "")
@@ -56,73 +101,21 @@ namespace UrDeveloper.PrplServer
                     rewriterOptions.Add(new RewriteAppRoute(fullEntryPoint));
                     app.UseRewriter(rewriterOptions);
 
-                    /*
-                    app.Use(async (ctx, next) =>
+                    if (!string.IsNullOrEmpty(config.BowerPath) && Directory.Exists(config.BowerPath))
                     {
-                        await next();
-                        if (ctx.Response.StatusCode == 404 && !Path.HasExtension(ctx.Request.Path.Value))
+                        app.UseStaticFiles(new StaticFileOptions
                         {
-                            ctx.Request.Path = "/" + fullEntryPoint;
-                            await next();
-                        }
-                    });
-
-
-
-                    var rewriterOptions = new RewriteOptions
-                    {
-                        StaticFileProvider = new PhysicalFileProvider(build.BuildDir)
-                    };
-
-
-                    rewriterOptions.AddRewrite(".*(?<!\\..*?)$", fullEntryPoint, true);
-                    app.UseRewriter(rewriterOptions);
-                    */
+                            FileProvider = new PhysicalFileProvider(config.BowerPath),
+                            RequestPath = new PathString("/bower_components"),
+                            OnPrepareResponse = PrepareStaticFiles(config, build)
+                        });
+                    }
 
                     app.UseStaticFiles(new StaticFileOptions
                     {
                         FileProvider = new PhysicalFileProvider(build.BuildDir),
                         RequestPath = new PathString("/" + build.Name),
-                        OnPrepareResponse = (ctx) =>
-                        {
-                            if (ctx.File.Name.EndsWith("service-worker.js", StringComparison.Ordinal))
-                            {
-                                // A service worker may only register with a scope above its own path if
-                                // permitted by this header.
-                                // https://www.w3.org/TR/service-workers-1/#service-worker-allowed
-                                ctx.Context.Response.Headers["service-worker-allowed"] = "/";
-                            }
-
-                            // Don't set the Cache-Control header if it's already set. This way another
-                            // middleware can control caching, and we won't touch it.
-                            if (!ctx.Context.Response.Headers["Cache-Control"].Any())
-                            {
-                                ctx.Context.Response.Headers["Cache-Control"] = ctx.File.Name == build.EntryPoint ? "max-age=0"
-                                    : config.CacheControl;
-                            }
-
-                            if (build.PushManifest != null)
-                            {
-                                var urlPath = ctx.Context.Request.Path;
-
-                                var linkHeaders = new List<string>();
-
-                                var appRouteFeature = ctx.Context.Features.Get<ApplicationRouteFeature>();
-
-                                if (appRouteFeature != null && !string.IsNullOrEmpty(appRouteFeature.Path))
-                                {
-                                    // Also check the filename against the push manifest. In the case of
-                                    // the entrypoint, these will be different (e.g. "/my/app/route" vs
-                                    // "/es2015/index.html"), and we want to support configuring pushes in
-                                    // terms of both.
-                                    linkHeaders.AddRange(build.PushManifest.LinkHeaders(appRouteFeature.Path));
-                                }
-
-                                linkHeaders.AddRange(build.PushManifest.LinkHeaders(urlPath));
-
-                                ctx.Context.Response.Headers.Add("Link", linkHeaders.ToArray());
-                            }
-                        }
+                        OnPrepareResponse = PrepareStaticFiles(config, build)
                     });
 
                     app.UseStatusCodePages(new StatusCodePagesOptions

@@ -47,5 +47,9 @@ namespace UrDeveloper.PrplServer
         public string EntryPoint { get; set; }
 
         public List<BuildConfiguration> Builds { get; set; }
+
+        public bool UseNodeModules { get; set; }
+
+        public string BowerPath { get; set; }
     }
 }
