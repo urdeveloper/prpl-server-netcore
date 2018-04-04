@@ -44,7 +44,7 @@ namespace UrDeveloper.PrplServer
                     new BrowserPredicates()
                         .AddCapabilty(BrowserCapability.es2015,Since(10))
                         .AddCapabilty(BrowserCapability.push,Since(9,2))
-                        .AddCapabilty(BrowserCapability.serviceworker,ua=>false)
+                        .AddCapabilty(BrowserCapability.serviceworker,Since(11,3))
                         .AddCapabilty(BrowserCapability.modules,Since(10,3))
                 },
                 {
@@ -54,8 +54,7 @@ namespace UrDeveloper.PrplServer
                         .AddCapabilty(BrowserCapability.push,ua =>
                                       VersionAtLeast(new int[]{9}, new int[]{ParseInt(ua.UserAgent.Major), ParseInt(ua.UserAgent.Minor), ParseInt(ua.UserAgent.Patch)})
                                       && VersionAtLeast(new int[]{10,11}, new int[]{ParseInt(ua.OS.Major), ParseInt(ua.OS.Minor), ParseInt(ua.OS.Patch)}))
-                        // https://webkit.org/status/#specification-service-workers
-                        .AddCapabilty(BrowserCapability.serviceworker,ua=>false)
+                        .AddCapabilty(BrowserCapability.serviceworker,Since(11,1))
                         .AddCapabilty(BrowserCapability.modules,Since(10,1))
                 },
                 {
